@@ -1,0 +1,149 @@
+/* Navigation Component Styles */
+.navigation {
+  padding: 1.5rem 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-header {
+  padding: 0 1.5rem 1rem 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 1rem;
+}
+
+.nav-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.nav-items {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex: 1;
+}
+
+.nav-item {
+  margin-bottom: 0.25rem;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0.75rem 1.5rem;
+  text-decoration: none;
+  color: #4b5563;
+  font-weight: 500;
+  transition: all 0.2s ease-in-out;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.nav-link:hover {
+  background: #f1f5f9;
+  color: #2563eb;
+  transform: translateX(4px);
+}
+
+.nav-link:focus {
+  outline: none;
+  background: #e0e7ff;
+  color: #2563eb;
+  box-shadow: inset 4px 0 0 #2563eb;
+}
+
+.nav-link:active {
+  background: #dbeafe;
+  transform: translateX(2px);
+}
+
+.nav-icon {
+  font-size: 1.25rem;
+  margin-right: 0.75rem;
+  width: 1.5rem;
+  text-align: center;
+  transition: transform 0.2s ease-in-out;
+}
+
+.nav-link:hover .nav-icon {
+  transform: scale(1.1);
+}
+
+.nav-label {
+  flex: 1;
+  text-align: left;
+}
+
+/* Active state (to be implemented with router) */
+.nav-link.active {
+  background: #e0e7ff;
+  color: #2563eb;
+  box-shadow: inset 4px 0 0 #2563eb;
+}
+
+.nav-link.active .nav-icon {
+  transform: scale(1.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  .navigation {
+    padding: 1rem 0;
+  }
+  
+  .nav-header {
+    padding: 0 1rem 0.75rem 1rem;
+  }
+  
+  .nav-link {
+    padding: 0.625rem 1rem;
+    font-size: 0.9rem;
+  }
+  
+  .nav-icon {
+    font-size: 1.125rem;
+    margin-right: 0.625rem;
+    width: 1.25rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .navigation {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0.75rem;
+  }
+  
+  .nav-header {
+    display: none;
+  }
+  
+  .nav-items {
+    display: flex;
+    gap: 0.5rem;
+    min-width: max-content;
+  }
+  
+  .nav-item {
+    margin-bottom: 0;
+  }
+  
+  .nav-link {
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    white-space: nowrap;
+    min-width: max-content;
+  }
+  
+  .nav-link:hover {
+    transform: none;
+  }
+}
