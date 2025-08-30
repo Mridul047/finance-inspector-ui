@@ -8,6 +8,8 @@ const Navigation = () => {
     { id: 'dashboard', label: 'Dashboard', icon: '📊', path: '/' },
     { id: 'users', label: 'Users', icon: '👥', path: '/users' },
     { id: 'income', label: 'Income', icon: '💰', path: '/income' },
+    { id: 'expenses', label: 'Expenses', icon: '💳', path: '/expenses' },
+    { id: 'categories', label: 'Categories', icon: '📁', path: '/categories' },
     { id: 'reports', label: 'Reports', icon: '📈', path: '/reports' },
     { id: 'settings', label: 'Settings', icon: '⚙️', path: '/settings' },
   ];

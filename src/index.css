@@ -74,4 +74,297 @@
   .card-hover {
     @apply hover:shadow-md hover:-translate-y-1 transition-all duration-200;
   }
+
+  /* Responsive card variations */
+  .card-responsive {
+    @apply bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4 md:p-6;
+  }
+
+  /* Form responsive utilities */
+  .form-grid {
+    @apply grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
+  }
+
+  .form-grid-2 {
+    @apply grid grid-cols-1 gap-4 md:grid-cols-2;
+  }
+
+  .form-grid-3 {
+    @apply grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3;
+  }
+
+  /* Statistics cards responsive */
+  .stats-grid {
+    @apply grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4;
+  }
+
+  .stats-grid-3 {
+    @apply grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3;
+  }
+
+  /* Table responsive wrapper */
+  .table-responsive {
+    @apply overflow-x-auto -mx-4 sm:mx-0 sm:rounded-lg;
+  }
+
+  /* Mobile-first button adaptations */
+  .btn-mobile {
+    @apply w-full sm:w-auto;
+  }
+
+  .btn-group-mobile {
+    @apply flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2;
+  }
+
+  /* Mobile navigation */
+  .mobile-menu {
+    @apply block sm:hidden;
+  }
+
+  .desktop-menu {
+    @apply hidden sm:block;
+  }
+
+  /* Responsive text sizes */
+  .text-responsive-sm {
+    @apply text-sm sm:text-base;
+  }
+
+  .text-responsive-lg {
+    @apply text-lg sm:text-xl lg:text-2xl;
+  }
+
+  .text-responsive-xl {
+    @apply text-xl sm:text-2xl lg:text-3xl;
+  }
+
+  /* Spacing utilities for mobile */
+  .px-mobile {
+    @apply px-4 sm:px-6 lg:px-8;
+  }
+
+  .py-mobile {
+    @apply py-4 sm:py-6 lg:py-8;
+  }
+
+  /* Container responsive */
+  .container-responsive {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Filter section responsive */
+  .filters-responsive {
+    @apply grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6;
+  }
+
+  /* Action buttons responsive */
+  .actions-responsive {
+    @apply flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2 sm:justify-end;
+  }
+
+  /* Modal responsive */
+  .modal-responsive {
+    @apply w-full max-w-sm sm:max-w-md lg:max-w-lg mx-4 sm:mx-auto;
+  }
+
+  /* Hide on mobile */
+  .hidden-mobile {
+    @apply hidden sm:block;
+  }
+
+  /* Show only on mobile */
+  .mobile-only {
+    @apply block sm:hidden;
+  }
+
+  /* Responsive padding for DataTable */
+  .datatable-responsive {
+    @apply px-2 sm:px-4 lg:px-6;
+  }
+}
+
+@layer utilities {
+  /* Custom scrollbar for better mobile experience */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f1f5f9;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+
+  /* Touch-friendly interactive elements */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Safe area for mobile devices with notches */
+  .safe-area-inset {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Mobile-specific media queries for fine-tuning */
+@media (max-width: 640px) {
+  /* Ensure forms don't get too cramped on mobile */
+  .card {
+    @apply p-4;
+  }
+
+  /* Make sure buttons are touch-friendly */
+  .btn {
+    @apply min-h-[44px] px-4 py-3;
+  }
+
+  /* Adjust font sizes for mobile readability */
+  h1 {
+    @apply text-xl;
+  }
+
+  h2 {
+    @apply text-lg;
+  }
+
+  h3 {
+    @apply text-base;
+  }
+
+  /* Make tables more mobile-friendly */
+  .table-mobile-stack th,
+  .table-mobile-stack td {
+    @apply block text-left py-2 px-0 border-0;
+  }
+
+  .table-mobile-stack thead {
+    @apply hidden;
+  }
+
+  .table-mobile-stack tbody tr {
+    @apply block border border-gray-200 rounded-lg mb-4 p-4;
+  }
+
+  /* Mobile-specific navigation adjustments */
+  .nav-mobile {
+    @apply text-sm;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Extra small screens */
+  .container-responsive {
+    @apply px-3;
+  }
+
+  .card-responsive {
+    @apply p-3 rounded-md;
+  }
+
+  /* Stack statistics cards vertically on very small screens */
+  .stats-grid {
+    @apply grid-cols-1 gap-3;
+  }
+}
+
+/* Additional utility classes for improved consistency */
+@layer utilities {
+  /* Line clamp utility for text truncation */
+  .line-clamp-1 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+  
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  /* Enhanced flex-shrink-0 for better button layouts */
+  .flex-shrink-0 {
+    flex-shrink: 0;
+  }
+
+  /* Improved button group spacing */
+  .btn-group-responsive {
+    @apply flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-3;
+  }
+
+  /* Better card shadows and hover effects */
+  .card-hover-enhanced {
+    @apply transition-all duration-200 hover:shadow-lg hover:-translate-y-1 hover:border-gray-300;
+  }
+
+  /* Consistent spacing for statistics cards */
+  .stats-card {
+    @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6 transition-all duration-200 hover:shadow-md;
+  }
+
+  /* Enhanced action button groups */
+  .action-buttons {
+    @apply flex flex-wrap items-center gap-2 sm:gap-3;
+  }
+
+  /* Better responsive text sizing */
+  .text-stat-number {
+    @apply text-xl sm:text-2xl font-bold text-gray-900;
+  }
+
+  .text-stat-label {
+    @apply text-xs sm:text-sm text-gray-600;
+  }
+
+  /* Improved mobile-first containers */
+  .page-container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Better responsive headers */
+  .page-header {
+    @apply mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4;
+  }
+
+  /* Enhanced filter sections */
+  .filter-section {
+    @apply bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-6;
+  }
+
+  /* Better form input consistency */
+  .form-input-standard {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200;
+  }
+
+  /* Improved loading states */
+  .loading-overlay {
+    @apply absolute inset-0 bg-white/75 flex items-center justify-center z-10;
+  }
 }
