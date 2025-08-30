@@ -28,7 +28,8 @@ function CategoryForm() {
     name: '',
     description: '',
     colorCode: '#3B82F6', // Default blue color
-    parentId: parentId || ''
+    parentId: parentId || '',
+    sortOrder: 0 // Add sort order for better organization
   });
   
   const [categoryOptions, setCategoryOptions] = useState([]);
@@ -43,7 +44,7 @@ function CategoryForm() {
       ? options.filter(option => option.id !== parseInt(id) && !isDescendant(option.id, parseInt(id), options))
       : options;
     setCategoryOptions(filteredOptions);
-  }, [getCategoryOptions, isEditing, id]); // Depend on getCategoryOptions to update when categories change
+  }, [getCategoryOptions, isEditing, id]);
 
   // Helper function to check if a category is a descendant of another
   const isDescendant = (categoryId, ancestorId, options) => {
@@ -60,7 +61,8 @@ function CategoryForm() {
         name: category.name || '',
         description: category.description || '',
         colorCode: category.colorCode || '#3B82F6',
-        parentId: category.parentId ? category.parentId.toString() : ''
+        parentId: category.parent?.id ? category.parent.id.toString() : '',
+        sortOrder: category.sortOrder || 0
       });
     }
   }, [isEditing, category]);
@@ -72,10 +74,16 @@ function CategoryForm() {
       errors.name = 'Category name is required';
     } else if (formData.name.trim().length < 2) {
       errors.name = 'Category name must be at least 2 characters';
+    } else if (formData.name.trim().length > 100) {
+      errors.name = 'Category name must be less than 100 characters';
     }
     
     if (!formData.colorCode || !/^#[0-9A-F]{6}$/i.test(formData.colorCode)) {
       errors.colorCode = 'Please select a valid color';
+    }
+
+    if (formData.sortOrder < 0 || formData.sortOrder > 999) {
+      errors.sortOrder = 'Sort order must be between 0 and 999';
     }
     
     setValidationErrors(errors);
@@ -83,10 +91,10 @@ function CategoryForm() {
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: type === 'number' ? parseInt(value) || 0 : value
     }));
     
     // Clear validation error for this field
@@ -113,7 +121,8 @@ function CategoryForm() {
         name: formData.name.trim(),
         description: formData.description.trim() || null,
         colorCode: formData.colorCode,
-        parentId: formData.parentId ? parseInt(formData.parentId) : null
+        parentId: formData.parentId ? parseInt(formData.parentId) : null,
+        sortOrder: formData.sortOrder || 0
       };
       
       if (isEditing) {
@@ -179,12 +188,12 @@ function CategoryForm() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          {isEditing ? 'Edit Category' : 'Add New Category'}
+          {isEditing ? 'Edit Global Category' : 'Add New Global Category'}
         </h1>
         <p className="text-gray-600">
           {isEditing 
-            ? 'Update category details and organization' 
-            : 'Create a new category to organize your expenses'
+            ? 'Update global category details and organization' 
+            : 'Create a new global category available system-wide'
           }
         </p>
       </div>
@@ -201,6 +210,20 @@ function CategoryForm() {
           </div>
         </div>
       )}
+
+      {/* Admin Notice */}
+      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="flex items-start gap-3">
+          <span className="text-blue-600 text-xl">🔐</span>
+          <div>
+            <p className="text-sm font-medium text-blue-800">Admin Access Required</p>
+            <p className="text-sm text-blue-700 mt-1">
+              You are creating/editing a global category that will be available to all users in the system. 
+              This action requires administrator privileges.
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="card">
@@ -263,6 +286,32 @@ function CategoryForm() {
             </select>
             <p className="mt-1 text-sm text-gray-500">
               Select a parent category to create a subcategory
+            </p>
+          </div>
+
+          {/* Sort Order */}
+          <div>
+            <label htmlFor="sortOrder" className="block text-sm font-medium text-gray-700 mb-2">
+              Sort Order (Optional)
+            </label>
+            <input
+              type="number"
+              id="sortOrder"
+              name="sortOrder"
+              value={formData.sortOrder}
+              onChange={handleChange}
+              min="0"
+              max="999"
+              placeholder="0"
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                validationErrors.sortOrder ? 'border-red-300' : 'border-gray-300'
+              }`}
+            />
+            {validationErrors.sortOrder && (
+              <p className="mt-1 text-sm text-red-600">{validationErrors.sortOrder}</p>
+            )}
+            <p className="mt-1 text-sm text-gray-500">
+              Lower numbers appear first in category lists (0-999)
             </p>
           </div>
 
@@ -360,9 +409,11 @@ function CategoryForm() {
           />
           <div>
             <div className="flex items-center gap-2">
-              {formData.iconCode && <span>{formData.iconCode}</span>}
               <span className="font-medium text-gray-900">
                 {formData.name || 'Category Name'}
+              </span>
+              <span className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                Global Category
               </span>
             </div>
             {formData.description && (
@@ -373,6 +424,11 @@ function CategoryForm() {
             {formData.parentId && (
               <p className="text-xs text-gray-500 mt-1">
                 Subcategory of: {categoryOptions.find(opt => opt.id === parseInt(formData.parentId))?.originalName}
+              </p>
+            )}
+            {formData.sortOrder > 0 && (
+              <p className="text-xs text-gray-500 mt-1">
+                Sort order: {formData.sortOrder}
               </p>
             )}
           </div>

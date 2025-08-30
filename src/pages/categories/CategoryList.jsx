@@ -1,22 +1,35 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useCategories } from '../../hooks/useCategories';
+import { useCategories } from '../../contexts/CategoryContext';
 import { DeleteConfirmDialog } from '../../components/common/ConfirmDialog';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 function CategoryList() {
-  const userId = 1; // Hardcoded for now, would come from auth context
-  
   const {
-    categoryTree,
+    buildCategoryTree,
     loading,
     error,
-    statistics,
     deleteCategory,
-    clearError
-  } = useCategories(userId);
+    activateCategory, // New method for activating categories
+    clearError,
+    totalCategories,
+    activeCategories,
+    inactiveCategories,
+    topLevelCategories,
+    subcategories
+  } = useCategories();
+  
+  const categoryTree = buildCategoryTree();
+  const statistics = {
+    totalCategories,
+    activeCategories,
+    inactiveCategories,
+    topLevelCategories,
+    subcategories
+  };
   
   const [deleteDialog, setDeleteDialog] = useState({ isOpen: false, category: null, loading: false });
+  const [activateDialog, setActivateDialog] = useState({ isOpen: false, category: null, loading: false });
   const [expandedCategories, setExpandedCategories] = useState(new Set());
 
   const toggleExpanded = (categoryId) => {
@@ -50,6 +63,27 @@ function CategoryList() {
 
   const handleDeleteCancel = () => {
     setDeleteDialog({ isOpen: false, category: null, loading: false });
+  };
+
+  const handleActivateClick = (category) => {
+    setActivateDialog({ isOpen: true, category, loading: false });
+  };
+
+  const handleActivateConfirm = async () => {
+    if (!activateDialog.category) return;
+
+    setActivateDialog(prev => ({ ...prev, loading: true }));
+    try {
+      await activateCategory(activateDialog.category.id);
+      setActivateDialog({ isOpen: false, category: null, loading: false });
+    } catch {
+      // Error is handled by the hook
+      setActivateDialog(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  const handleActivateCancel = () => {
+    setActivateDialog({ isOpen: false, category: null, loading: false });
   };
 
   const CategoryTreeItem = ({ category, level = 0 }) => {
@@ -90,15 +124,16 @@ function CategoryList() {
                     {category.name}
                   </h3>
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                      category.isGlobal
-                        ? 'bg-purple-100 text-purple-800'
-                        : 'bg-green-100 text-green-800'
-                    }`}>
-                      {category.isGlobal ? 'Global' : 'Personal'}
+                    <span className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      Global Category
                     </span>
+                    {!category.isActive && (
+                      <span className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        Inactive
+                      </span>
+                    )}
                     {hasChildren && (
-                      <span className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      <span className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                         {category.children.length} subcategorie{category.children.length !== 1 ? 's' : ''}
                       </span>
                     )}
@@ -122,27 +157,38 @@ function CategoryList() {
                 <span className="hidden sm:inline">👁️ View</span>
                 <span className="sm:hidden">👁️</span>
               </Link>
-              {!category.isGlobal && (
-                <>
-                  <Link
-                    to={`/categories/${category.id}/edit`}
-                    className="btn btn-primary btn-sm flex-shrink-0"
-                    title="Edit Category"
-                  >
-                    <span className="hidden sm:inline">✏️ Edit</span>
-                    <span className="sm:hidden">✏️</span>
-                  </Link>
-                  <button
-                    onClick={() => handleDeleteClick(category)}
-                    className="btn btn-danger btn-sm flex-shrink-0"
-                    title="Delete Category"
-                    disabled={hasChildren}
-                  >
-                    <span className="hidden sm:inline">🗑️ Delete</span>
-                    <span className="sm:hidden">🗑️</span>
-                  </button>
-                </>
+
+              {/* Admin Actions - Show for all categories since user needs admin role */}
+              <Link
+                to={`/categories/${category.id}/edit`}
+                className="btn btn-primary btn-sm flex-shrink-0"
+                title="Edit Category"
+              >
+                <span className="hidden sm:inline">✏️ Edit</span>
+                <span className="sm:hidden">✏️</span>
+              </Link>
+              
+              {category.isActive ? (
+                <button
+                  onClick={() => handleDeleteClick(category)}
+                  className="btn btn-danger btn-sm flex-shrink-0"
+                  title="Delete Category"
+                  disabled={hasChildren}
+                >
+                  <span className="hidden sm:inline">🗑️ Delete</span>
+                  <span className="sm:hidden">🗑️</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleActivateClick(category)}
+                  className="btn btn-success btn-sm flex-shrink-0"
+                  title="Activate Category"
+                >
+                  <span className="hidden sm:inline">✅ Activate</span>
+                  <span className="sm:hidden">✅</span>
+                </button>
               )}
+
               <Link
                 to={`/categories/new?parentId=${category.id}`}
                 className="btn btn-outline btn-sm flex-shrink-0"
@@ -185,10 +231,10 @@ function CategoryList() {
       <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Category Management
+            Global Category Management
           </h1>
           <p className="text-gray-600">
-            Organize your expenses with hierarchical categories
+            Manage system-wide expense categories with hierarchical organization
           </p>
         </div>
         <Link
@@ -236,23 +282,23 @@ function CategoryList() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-green-100 rounded-full flex-shrink-0">
-              <span className="text-2xl">👤</span>
+              <span className="text-2xl">✅</span>
             </div>
             <div className="min-w-0">
-              <p className="text-2xl font-bold text-gray-900">{statistics.userCategories}</p>
-              <p className="text-sm text-gray-600">Personal</p>
+              <p className="text-2xl font-bold text-gray-900">{statistics.activeCategories}</p>
+              <p className="text-sm text-gray-600">Active</p>
             </div>
           </div>
         </div>
         
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-purple-100 rounded-full flex-shrink-0">
-              <span className="text-2xl">🌐</span>
+            <div className="p-3 bg-gray-100 rounded-full flex-shrink-0">
+              <span className="text-2xl">⏸️</span>
             </div>
             <div className="min-w-0">
-              <p className="text-2xl font-bold text-gray-900">{statistics.globalCategories}</p>
-              <p className="text-sm text-gray-600">Global</p>
+              <p className="text-2xl font-bold text-gray-900">{statistics.inactiveCategories}</p>
+              <p className="text-sm text-gray-600">Inactive</p>
             </div>
           </div>
         </div>
@@ -317,7 +363,7 @@ function CategoryList() {
             <div className="text-6xl mb-4">📁</div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">No Categories Found</h3>
             <p className="text-gray-600 mb-6">
-              Create your first category to start organizing your expenses.
+              Create your first global category to start organizing expenses system-wide.
             </p>
             <Link
               to="/categories/new"
@@ -334,12 +380,13 @@ function CategoryList() {
         <div className="flex items-start gap-3">
           <span className="text-blue-600 text-xl">💡</span>
           <div>
-            <h4 className="font-medium text-blue-800 mb-1">Tips for Category Management</h4>
+            <h4 className="font-medium text-blue-800 mb-1">Global Category Management</h4>
             <ul className="text-sm text-blue-700 space-y-1">
-              <li>• <strong>Global categories</strong> are system-wide and cannot be edited or deleted</li>
-              <li>• <strong>Personal categories</strong> are your custom categories that you can modify</li>
+              <li>• <strong>Global categories</strong> are available system-wide to all users</li>
+              <li>• <strong>Admin privileges</strong> are required to create, edit, or delete categories</li>
               <li>• Use subcategories to create detailed expense organization (e.g., Food → Restaurants, Groceries)</li>
               <li>• Categories with subcategories cannot be deleted until all subcategories are removed</li>
+              <li>• Inactive categories can be reactivated and won't appear in expense selection</li>
               <li>• Color-code your categories for easy visual identification in expense lists</li>
             </ul>
           </div>
@@ -357,8 +404,22 @@ function CategoryList() {
         extraWarning={
           deleteDialog.category && deleteDialog.category.children?.length > 0 
             ? `This category has ${deleteDialog.category.children.length} subcategories that will also be affected.`
-            : null
+            : "This will soft-delete the category, making it inactive. You can reactivate it later if needed."
         }
+      />
+
+      {/* Activate Confirmation Dialog */}
+      <DeleteConfirmDialog
+        isOpen={activateDialog.isOpen}
+        onClose={handleActivateCancel}
+        onConfirm={handleActivateConfirm}
+        itemName={activateDialog.category ? activateDialog.category.name : ''}
+        itemType="category"
+        loading={activateDialog.loading}
+        title="Activate Category"
+        message="Are you sure you want to activate this category?"
+        confirmText="Activate"
+        extraWarning="This will make the category available for expense selection again."
       />
     </div>
   );

@@ -7,29 +7,26 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 let memoryCache = new Map();
 
 export const categoryService = {
-  // Get categories for a user (with optional global categories)
-  getCategories: async (userId, includeGlobal = true) => {
+  // ===== PUBLIC CATEGORY OPERATIONS (Read-only, no authentication required) =====
+  
+  // Get all global categories
+  getAllGlobalCategories: async () => {
     try {
       // Check memory cache first
-      const cacheKey = `${userId}_${includeGlobal}`;
+      const cacheKey = 'global_categories';
       const cached = categoryService._getFromCache(cacheKey);
       
       if (cached) {
-        console.log('Using cached categories, count:', cached.length);
+        console.log('Using cached global categories, count:', cached.length);
         return cached;
       }
 
-      console.log('Fetching categories from API...');
-      const response = await api.get('/v1/categories', {
-        params: {
-          userId,
-          includeGlobal
-        }
-      });
+      console.log('Fetching global categories from API...');
+      const response = await api.get('/v1/public/categories');
       
       // Cache the result
       categoryService._setCache(cacheKey, response.data);
-      console.log('Categories fetched and cached, count:', response.data.length);
+      console.log('Global categories fetched and cached, count:', response.data.length);
       
       return response.data;
     } catch (error) {
@@ -37,6 +34,163 @@ export const categoryService = {
       throw displayError;
     }
   },
+
+  // Get category by ID (public endpoint)
+  getCategoryById: async (categoryId) => {
+    try {
+      const response = await api.get(`/v1/public/categories/${categoryId}`);
+      return response.data;
+    } catch (error) {
+      const displayError = createDisplayError(error, 'category');
+      throw displayError;
+    }
+  },
+
+  // Get top-level categories (categories with no parent)
+  getTopLevelCategories: async () => {
+    try {
+      const response = await api.get('/v1/public/categories/top-level');
+      return response.data;
+    } catch (error) {
+      const displayError = createDisplayError(error, 'category');
+      throw displayError;
+    }
+  },
+
+  // Get subcategories for a parent category
+  getSubcategories: async (parentId) => {
+    try {
+      const response = await api.get(`/v1/public/categories/${parentId}/subcategories`);
+      return response.data;
+    } catch (error) {
+      const displayError = createDisplayError(error, 'category');
+      throw displayError;
+    }
+  },
+
+  // Search categories by name or description
+  searchCategories: async (query, parentOnly = false) => {
+    try {
+      const response = await api.get('/v1/public/categories/search', {
+        params: { query, parentOnly }
+      });
+      return response.data;
+    } catch (error) {
+      const displayError = createDisplayError(error, 'category');
+      throw displayError;
+    }
+  },
+
+  // ===== ADMIN CATEGORY OPERATIONS (Requires authentication) =====
+
+  // Create new global category (admin only)
+  createGlobalCategory: async (categoryData) => {
+    try {
+      const response = await api.post('/v1/admin/categories', categoryData);
+      // Clear cache after creating category
+      categoryService.clearCache();
+      return response.data;
+    } catch (error) {
+      const displayError = createDisplayError(error, 'category');
+      throw displayError;
+    }
+  },
+
+  // Update global category (admin only)
+  updateGlobalCategory: async (categoryId, categoryData) => {
+    try {
+      const response = await api.put(`/v1/admin/categories/${categoryId}`, categoryData);
+      // Clear cache after updating category
+      categoryService.clearCache();
+      return response.data;
+    } catch (error) {
+      const displayError = createDisplayError(error, 'category');
+      throw displayError;
+    }
+  },
+
+  // Delete global category (admin only)
+  deleteGlobalCategory: async (categoryId) => {
+    try {
+      await api.delete(`/v1/admin/categories/${categoryId}`);
+      // Clear cache after deleting category
+      categoryService.clearCache();
+      return { success: true, message: 'Category deleted successfully' };
+    } catch (error) {
+      const displayError = createDisplayError(error, 'category');
+      throw displayError;
+    }
+  },
+
+  // Activate global category (admin only)
+  activateGlobalCategory: async (categoryId) => {
+    try {
+      const response = await api.put(`/v1/admin/categories/${categoryId}/activate`);
+      // Clear cache after activating category
+      categoryService.clearCache();
+      return response.data;
+    } catch (error) {
+      const displayError = createDisplayError(error, 'category');
+      throw displayError;
+    }
+  },
+
+  // ===== BACKWARD COMPATIBILITY METHODS =====
+  // These methods maintain the existing interface while using new endpoints
+  
+  // Legacy method: Get categories (now uses global categories)
+  getCategories: async (userId, includeGlobal = true) => {
+    try {
+      // For backward compatibility, always return global categories
+      // The userId and includeGlobal parameters are ignored as the new API doesn't require them
+      console.log(`Legacy getCategories called for userId: ${userId}, includeGlobal: ${includeGlobal} - using global categories`);
+      return await categoryService.getAllGlobalCategories();
+    } catch (error) {
+      const displayError = createDisplayError(error, 'category');
+      throw displayError;
+    }
+  },
+
+  // Legacy method: Create category (now creates global category)
+  createCategory: async (userId, categoryData) => {
+    try {
+      // For backward compatibility, create as global category
+      // The userId parameter is ignored as admin operations use authentication context
+      console.log('Legacy createCategory called - using admin endpoint');
+      return await categoryService.createGlobalCategory(categoryData);
+    } catch (error) {
+      const displayError = createDisplayError(error, 'category');
+      throw displayError;
+    }
+  },
+
+  // Legacy method: Update category (now updates global category)
+  updateCategory: async (categoryId, userId, categoryData) => {
+    try {
+      // For backward compatibility, update as global category
+      // The userId parameter is ignored as admin operations use authentication context
+      console.log('Legacy updateCategory called - using admin endpoint');
+      return await categoryService.updateGlobalCategory(categoryId, categoryData);
+    } catch (error) {
+      const displayError = createDisplayError(error, 'category');
+      throw displayError;
+    }
+  },
+
+  // Legacy method: Delete category (now deletes global category)
+  deleteCategory: async (categoryId, userId) => {
+    try {
+      // For backward compatibility, delete as global category
+      // The userId parameter is ignored as admin operations use authentication context
+      console.log(`Legacy deleteCategory called for categoryId: ${categoryId}, userId: ${userId} - using admin endpoint`);
+      return await categoryService.deleteGlobalCategory(categoryId);
+    } catch (error) {
+      const displayError = createDisplayError(error, 'category');
+      throw displayError;
+    }
+  },
+
+  // ===== HELPER METHODS =====
 
   // Cache helper methods
   _setCache: (key, data) => {
@@ -60,102 +214,18 @@ export const categoryService = {
   },
 
   // Clear cache
-  clearCache: (userId = null, includeGlobal = null) => {
-    if (userId !== null && includeGlobal !== null) {
-      const cacheKey = `${userId}_${includeGlobal}`;
+  clearCache: (cacheKey = null) => {
+    if (cacheKey) {
       memoryCache.delete(cacheKey);
     } else {
       memoryCache.clear();
     }
   },
 
-  // Get category by ID
-  getCategoryById: async (categoryId, userId) => {
-    try {
-      const response = await api.get(`/v1/categories/${categoryId}`, {
-        params: { userId }
-      });
-      return response.data;
-    } catch (error) {
-      const displayError = createDisplayError(error, 'category');
-      throw displayError;
-    }
-  },
-
-  // Create new category
-  createCategory: async (userId, categoryData) => {
-    try {
-      const response = await api.post('/v1/categories', categoryData, {
-        params: { userId }
-      });
-      // Clear cache after creating category
-      categoryService.clearCache();
-      return response.data;
-    } catch (error) {
-      const displayError = createDisplayError(error, 'category');
-      throw displayError;
-    }
-  },
-
-  // Update category
-  updateCategory: async (categoryId, userId, categoryData) => {
-    try {
-      const response = await api.put(`/v1/categories/${categoryId}`, categoryData, {
-        params: { userId }
-      });
-      // Clear cache after updating category
-      categoryService.clearCache();
-      return response.data;
-    } catch (error) {
-      const displayError = createDisplayError(error, 'category');
-      throw displayError;
-    }
-  },
-
-  // Delete category
-  deleteCategory: async (categoryId, userId) => {
-    try {
-      await api.delete(`/v1/categories/${categoryId}`, {
-        params: { userId }
-      });
-      // Clear cache after deleting category
-      categoryService.clearCache();
-      return { success: true, message: 'Category deleted successfully' };
-    } catch (error) {
-      const displayError = createDisplayError(error, 'category');
-      throw displayError;
-    }
-  },
-
-  // Get subcategories for a parent category
-  getSubcategories: async (parentId, userId) => {
-    try {
-      const response = await api.get(`/v1/categories/${parentId}/subcategories`, {
-        params: { userId }
-      });
-      return response.data;
-    } catch (error) {
-      const displayError = createDisplayError(error, 'category');
-      throw displayError;
-    }
-  },
-
-  // Get top-level categories (categories with no parent)
-  getTopLevelCategories: async (userId, includeGlobal = true) => {
-    try {
-      const categories = await categoryService.getCategories(userId, includeGlobal);
-      // Filter to only top-level categories (no parentId)
-      return categories.filter(category => !category.parentId);
-    } catch (error) {
-      const displayError = createDisplayError(error, 'category');
-      throw displayError;
-    }
-  },
-
   // Build hierarchical category tree
-  buildCategoryTree: async (userId, includeGlobal = true) => {
+  buildCategoryTree: async () => {
     try {
-      const allCategories = await categoryService.getCategories(userId, includeGlobal);
+      const allCategories = await categoryService.getAllGlobalCategories();
       
       // Create a map for quick lookup
       const categoryMap = new Map();
@@ -167,9 +237,9 @@ export const categoryService = {
       const rootCategories = [];
       
       categoryMap.forEach(category => {
-        if (category.parentId) {
-          // This is a subcategory
-          const parent = categoryMap.get(category.parentId);
+        if (category.parent && category.parent.id) {
+          // This is a subcategory - find parent in map
+          const parent = categoryMap.get(category.parent.id);
           if (parent) {
             parent.children.push(category);
           }
@@ -187,9 +257,9 @@ export const categoryService = {
   },
 
   // Get category options for forms (flattened list with hierarchy indication)
-  getCategoryOptions: async (userId, includeGlobal = true) => {
+  getCategoryOptions: async () => {
     try {
-      const categoryTree = await categoryService.buildCategoryTree(userId, includeGlobal);
+      const categoryTree = await categoryService.buildCategoryTree();
       
       const flattenOptions = (categories, level = 0) => {
         let options = [];
@@ -202,9 +272,10 @@ export const categoryService = {
             name: `${indent}${category.name}`,
             originalName: category.name,
             level: level,
-            parentId: category.parentId,
+            parentId: category.parent?.id || null,
             colorCode: category.colorCode,
-            isGlobal: category.isGlobal
+            isGlobal: true, // All categories are now global
+            isActive: category.isActive
           });
           
           // Add children recursively
@@ -224,7 +295,7 @@ export const categoryService = {
   },
 
   // Validate category operation (prevent circular references, etc.)
-  validateCategoryOperation: async (categoryData, userId) => {
+  validateCategoryOperation: async (categoryData) => {
     try {
       // Client-side validation to prevent obvious issues
       if (categoryData.parentId === categoryData.id) {
@@ -233,7 +304,7 @@ export const categoryService = {
 
       // Check if parent exists (if parentId is provided)
       if (categoryData.parentId) {
-        await categoryService.getCategoryById(categoryData.parentId, userId);
+        await categoryService.getCategoryById(categoryData.parentId);
       }
 
       return true;
@@ -244,19 +315,21 @@ export const categoryService = {
   },
 
   // Get category statistics
-  getCategoryStatistics: async (userId) => {
+  getCategoryStatistics: async () => {
     try {
-      const categories = await categoryService.getCategories(userId, true);
+      const categories = await categoryService.getAllGlobalCategories();
       
-      const userCategories = categories.filter(c => !c.isGlobal);
-      const globalCategories = categories.filter(c => c.isGlobal);
-      const topLevelCategories = categories.filter(c => !c.parentId);
-      const subcategories = categories.filter(c => c.parentId);
+      const activeCategories = categories.filter(c => c.isActive);
+      const inactiveCategories = categories.filter(c => !c.isActive);
+      const topLevelCategories = categories.filter(c => !c.parent);
+      const subcategories = categories.filter(c => c.parent);
 
       return {
         totalCategories: categories.length,
-        userCategories: userCategories.length,
-        globalCategories: globalCategories.length,
+        userCategories: 0, // No user-specific categories in new structure
+        globalCategories: categories.length,
+        activeCategories: activeCategories.length,
+        inactiveCategories: inactiveCategories.length,
         topLevelCategories: topLevelCategories.length,
         subcategories: subcategories.length
       };

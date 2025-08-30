@@ -10,7 +10,7 @@ function CategoryDetails() {
   const navigate = useNavigate();
   const userId = 1; // Hardcoded for now, would come from auth context
   
-  const { category, subcategories, loading, error, deleteCategory } = useCategory(id, userId);
+  const { category, subcategories, loading, error, deleteCategory, activateCategory } = useCategory(id, userId);
   const {
     expenses,
     loading: expensesLoading,
@@ -18,6 +18,7 @@ function CategoryDetails() {
   } = useExpenses(userId, { categoryId: id });
   
   const [deleteDialog, setDeleteDialog] = useState({ isOpen: false, loading: false });
+  const [activateDialog, setActivateDialog] = useState({ isOpen: false, loading: false });
   const [relatedExpenses, setRelatedExpenses] = useState([]);
 
   // Get all expenses for this category and its subcategories
@@ -46,6 +47,25 @@ function CategoryDetails() {
 
   const handleDeleteCancel = () => {
     setDeleteDialog({ isOpen: false, loading: false });
+  };
+
+  const handleActivateClick = () => {
+    setActivateDialog({ isOpen: true, loading: false });
+  };
+
+  const handleActivateConfirm = async () => {
+    setActivateDialog(prev => ({ ...prev, loading: true }));
+    try {
+      await activateCategory();
+      setActivateDialog({ isOpen: false, loading: false });
+    } catch (error) {
+      console.error('Failed to activate category:', error);
+      setActivateDialog(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  const handleActivateCancel = () => {
+    setActivateDialog({ isOpen: false, loading: false });
   };
 
   const formatDate = (dateString) => {
@@ -134,13 +154,14 @@ function CategoryDetails() {
               {category.name}
             </h1>
             <div className="flex items-center gap-2">
-              <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                category.isGlobal 
-                  ? 'bg-purple-100 text-purple-800' 
-                  : 'bg-green-100 text-green-800'
-              }`}>
-                {category.isGlobal ? 'Global Category' : 'Personal Category'}
+              <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                Global Category
               </span>
+              {!category.isActive && (
+                <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                  Inactive
+                </span>
+              )}
             </div>
           </div>
           <p className="text-gray-600">
@@ -149,32 +170,42 @@ function CategoryDetails() {
         </div>
         
         <div className="flex items-center gap-3">
-          {!category.isGlobal && (
-            <>
-              <Link
-                to={`/categories/${category.id}/edit`}
-                className="btn btn-primary flex items-center gap-2"
-              >
-                <span>✏️</span>
-                Edit Category
-              </Link>
-              <button
-                onClick={handleDeleteClick}
-                className="btn btn-danger flex items-center gap-2"
-                disabled={subcategories.length > 0 || relatedExpenses.length > 0}
-                title={
-                  subcategories.length > 0 
-                    ? "Cannot delete category with subcategories"
-                    : relatedExpenses.length > 0
-                    ? "Cannot delete category with expenses"
-                    : "Delete category"
-                }
-              >
-                <span>🗑️</span>
-                Delete
-              </button>
-            </>
+          {/* Admin Actions */}
+          <Link
+            to={`/categories/${category.id}/edit`}
+            className="btn btn-primary flex items-center gap-2"
+          >
+            <span>✏️</span>
+            Edit Category
+          </Link>
+          
+          {category.isActive ? (
+            <button
+              onClick={handleDeleteClick}
+              className="btn btn-danger flex items-center gap-2"
+              disabled={subcategories.length > 0 || relatedExpenses.length > 0}
+              title={
+                subcategories.length > 0 
+                  ? "Cannot delete category with subcategories"
+                  : relatedExpenses.length > 0
+                  ? "Cannot delete category with expenses"
+                  : "Delete category (soft delete)"
+              }
+            >
+              <span>🗑️</span>
+              Delete
+            </button>
+          ) : (
+            <button
+              onClick={handleActivateClick}
+              className="btn btn-success flex items-center gap-2"
+              title="Activate category"
+            >
+              <span>✅</span>
+              Activate
+            </button>
           )}
+          
           <Link
             to={`/categories/new?parentId=${category.id}`}
             className="btn btn-outline flex items-center gap-2"
@@ -207,12 +238,21 @@ function CategoryDetails() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Type
                 </label>
+                <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                  Global Category
+                </span>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Status
+                </label>
                 <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                  category.isGlobal 
-                    ? 'bg-purple-100 text-purple-800' 
-                    : 'bg-green-100 text-green-800'
+                  category.isActive 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-gray-100 text-gray-800'
                 }`}>
-                  {category.isGlobal ? 'Global Category' : 'Personal Category'}
+                  {category.isActive ? 'Active' : 'Inactive'}
                 </span>
               </div>
               
@@ -239,17 +279,28 @@ function CategoryDetails() {
                   {subcategories.length}
                 </p>
               </div>
+
+              {category.sortOrder && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Sort Order
+                  </label>
+                  <p className="text-lg font-semibold text-gray-900">
+                    {category.sortOrder}
+                  </p>
+                </div>
+              )}
               
-              {category.parentId && (
+              {category.parent && (
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Parent Category
                   </label>
                   <Link
-                    to={`/categories/${category.parentId}`}
+                    to={`/categories/${category.parent.id}`}
                     className="text-blue-600 hover:text-blue-800 font-medium"
                   >
-                    View Parent Category →
+                    {category.parent.name} →
                   </Link>
                 </div>
               )}
@@ -277,10 +328,17 @@ function CategoryDetails() {
                         style={{ backgroundColor: subcategory.colorCode || '#6b7280' }}
                       />
                       <div className="flex-1">
-                        <h3 className="font-medium text-gray-900">
-                          {subcategory.iconCode && <span className="mr-1">{subcategory.iconCode}</span>}
-                          {subcategory.name}
-                        </h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium text-gray-900">
+                            {subcategory.iconCode && <span className="mr-1">{subcategory.iconCode}</span>}
+                            {subcategory.name}
+                          </h3>
+                          {!subcategory.isActive && (
+                            <span className="inline-block px-1 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                              Inactive
+                            </span>
+                          )}
+                        </div>
                         {subcategory.description && (
                           <p className="text-sm text-gray-600 mt-1">
                             {subcategory.description}
@@ -341,13 +399,15 @@ function CategoryDetails() {
                         <h4 className="font-medium text-gray-900">{expense.description}</h4>
                         <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
                           <span>{formatDate(expense.expenseDate)}</span>
-                          <span className={`px-2 py-1 rounded text-xs ${
-                            expense.expenseType === 'NEED' 
-                              ? 'bg-red-100 text-red-800' 
-                              : 'bg-blue-100 text-blue-800'
-                          }`}>
-                            {expense.expenseType}
-                          </span>
+                          {expense.expenseType && (
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              expense.expenseType === 'NEED' 
+                                ? 'bg-red-100 text-red-800' 
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {expense.expenseType}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="text-right">
@@ -382,6 +442,13 @@ function CategoryDetails() {
             </div>
             
             <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Status</span>
+                <span className={`font-semibold ${category.isActive ? 'text-green-600' : 'text-gray-600'}`}>
+                  {category.isActive ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Total Expenses</span>
                 <span className="font-semibold text-gray-900">{relatedExpenses.length}</span>
@@ -439,15 +506,13 @@ function CategoryDetails() {
                 Add Subcategory
               </Link>
               
-              {!category.isGlobal && (
-                <Link
-                  to={`/categories/${category.id}/edit`}
-                  className="w-full btn btn-outline flex items-center justify-center gap-2"
-                >
-                  <span>✏️</span>
-                  Edit Category
-                </Link>
-              )}
+              <Link
+                to={`/categories/${category.id}/edit`}
+                className="w-full btn btn-outline flex items-center justify-center gap-2"
+              >
+                <span>✏️</span>
+                Edit Category
+              </Link>
               
               <Link
                 to="/categories"
@@ -484,8 +549,22 @@ function CategoryDetails() {
             ? `This category has ${subcategories.length} subcategories that must be removed first.`
             : relatedExpenses.length > 0
             ? `This category has ${relatedExpenses.length} expenses that will need to be recategorized.`
-            : null
+            : "This will soft-delete the category, making it inactive. You can reactivate it later if needed."
         }
+      />
+
+      {/* Activate Confirmation Dialog */}
+      <DeleteConfirmDialog
+        isOpen={activateDialog.isOpen}
+        onClose={handleActivateCancel}
+        onConfirm={handleActivateConfirm}
+        itemName={category.name}
+        itemType="category"
+        loading={activateDialog.loading}
+        title="Activate Category"
+        message="Are you sure you want to activate this category?"
+        confirmText="Activate"
+        extraWarning="This will make the category available for expense selection again."
       />
     </div>
   );

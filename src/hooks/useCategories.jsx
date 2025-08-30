@@ -10,25 +10,29 @@ export const useCategories = (userId, includeGlobal = true) => {
     totalCategories: 0,
     userCategories: 0,
     globalCategories: 0,
+    activeCategories: 0,
+    inactiveCategories: 0,
     topLevelCategories: 0,
     subcategories: 0
   });
 
   const fetchCategories = async () => {
-    if (!userId) return;
-
+    // Note: userId and includeGlobal are maintained for backward compatibility
+    // but the new API always returns global categories
+    console.log(`useCategories called with userId: ${userId}, includeGlobal: ${includeGlobal} - using global categories`);
     setLoading(true);
     setError(null);
     try {
-      const data = await categoryService.getCategories(userId, includeGlobal);
+      // Use new global categories endpoint
+      const data = await categoryService.getAllGlobalCategories();
       setCategories(data);
       
       // Build category tree
-      const tree = await categoryService.buildCategoryTree(userId, includeGlobal);
+      const tree = await categoryService.buildCategoryTree();
       setCategoryTree(tree);
       
       // Get statistics
-      const stats = await categoryService.getCategoryStatistics(userId);
+      const stats = await categoryService.getCategoryStatistics();
       setStatistics(stats);
     } catch (err) {
       setError(err.message || 'Failed to fetch categories');
@@ -39,15 +43,14 @@ export const useCategories = (userId, includeGlobal = true) => {
   };
 
   const createCategory = async (categoryData) => {
-    if (!userId) return;
-
     setLoading(true);
     setError(null);
     try {
       // Validate the category operation
-      await categoryService.validateCategoryOperation(categoryData, userId);
+      await categoryService.validateCategoryOperation(categoryData);
       
-      const newCategory = await categoryService.createCategory(userId, categoryData);
+      // Use new admin endpoint for creating categories
+      const newCategory = await categoryService.createGlobalCategory(categoryData);
       
       // Refresh categories to get updated tree structure
       await fetchCategories();
@@ -62,15 +65,14 @@ export const useCategories = (userId, includeGlobal = true) => {
   };
 
   const updateCategory = async (categoryId, categoryData) => {
-    if (!userId) return;
-
     setLoading(true);
     setError(null);
     try {
       // Validate the category operation
-      await categoryService.validateCategoryOperation({ ...categoryData, id: categoryId }, userId);
+      await categoryService.validateCategoryOperation({ ...categoryData, id: categoryId });
       
-      const updatedCategory = await categoryService.updateCategory(categoryId, userId, categoryData);
+      // Use new admin endpoint for updating categories
+      const updatedCategory = await categoryService.updateGlobalCategory(categoryId, categoryData);
       
       // Update the category in the flat list
       setCategories(prev => prev.map(category => 
@@ -78,7 +80,7 @@ export const useCategories = (userId, includeGlobal = true) => {
       ));
       
       // Refresh the tree structure
-      const tree = await categoryService.buildCategoryTree(userId, includeGlobal);
+      const tree = await categoryService.buildCategoryTree();
       setCategoryTree(tree);
       
       return updatedCategory;
@@ -91,12 +93,11 @@ export const useCategories = (userId, includeGlobal = true) => {
   };
 
   const deleteCategory = async (categoryId) => {
-    if (!userId) return;
-
     setLoading(true);
     setError(null);
     try {
-      await categoryService.deleteCategory(categoryId, userId);
+      // Use new admin endpoint for deleting categories
+      await categoryService.deleteGlobalCategory(categoryId);
       
       // Remove from flat list
       setCategories(prev => prev.filter(category => category.id !== categoryId));
@@ -113,11 +114,35 @@ export const useCategories = (userId, includeGlobal = true) => {
     }
   };
 
-  const getSubcategories = async (parentId) => {
-    if (!userId) return [];
-
+  const activateCategory = async (categoryId) => {
+    setLoading(true);
+    setError(null);
     try {
-      const subcategories = await categoryService.getSubcategories(parentId, userId);
+      // Use new admin endpoint for activating categories
+      const activatedCategory = await categoryService.activateGlobalCategory(categoryId);
+      
+      // Update the category in the flat list
+      setCategories(prev => prev.map(category => 
+        category.id === categoryId ? activatedCategory : category
+      ));
+      
+      // Refresh the tree structure
+      const tree = await categoryService.buildCategoryTree();
+      setCategoryTree(tree);
+      
+      return activatedCategory;
+    } catch (err) {
+      setError(err.message || 'Failed to activate category');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getSubcategories = async (parentId) => {
+    try {
+      // Use new public endpoint for subcategories
+      const subcategories = await categoryService.getSubcategories(parentId);
       return subcategories;
     } catch (err) {
       console.error(`Error fetching subcategories for ${parentId}:`, err);
@@ -125,9 +150,18 @@ export const useCategories = (userId, includeGlobal = true) => {
     }
   };
 
-  const getCategoryOptions = useCallback(async () => {
-    if (!userId) return [];
+  const searchCategories = async (query, parentOnly = false) => {
+    try {
+      // Use new public search endpoint
+      const results = await categoryService.searchCategories(query, parentOnly);
+      return results;
+    } catch (err) {
+      console.error(`Error searching categories with query "${query}":`, err);
+      return [];
+    }
+  };
 
+  const getCategoryOptions = useCallback(async () => {
     try {
       // Use existing categories data to build options instead of making new API call
       if (categories.length > 0) {
@@ -136,20 +170,21 @@ export const useCategories = (userId, includeGlobal = true) => {
           let options = [];
           
           cats.forEach(category => {
-            if (!category.parentId) { // Only process top-level categories here
+            if (!category.parent) { // Only process top-level categories here
               const indent = '  '.repeat(level);
               options.push({
                 id: category.id,
                 name: `${indent}${category.name}`,
                 originalName: category.name,
                 level: level,
-                parentId: category.parentId,
+                parentId: category.parent?.id || null,
                 colorCode: category.colorCode,
-                isGlobal: category.isGlobal
+                isGlobal: true, // All categories are now global
+                isActive: category.isActive
               });
               
               // Add children recursively
-              const children = cats.filter(c => c.parentId === category.id);
+              const children = cats.filter(c => c.parent?.id === category.id);
               if (children.length > 0) {
                 options.push(...flattenOptions(children, level + 1));
               }
@@ -164,13 +199,13 @@ export const useCategories = (userId, includeGlobal = true) => {
       
       // Fallback to API call only if no categories are loaded
       console.log('No categories cached, making API call for options');
-      const options = await categoryService.getCategoryOptions(userId, includeGlobal);
+      const options = await categoryService.getCategoryOptions();
       return options;
     } catch (err) {
       console.error('Error fetching category options:', err);
       return [];
     }
-  }, [userId, categories, includeGlobal]);
+  }, [categories]);
 
   const findCategoryById = (categoryId) => {
     return categories.find(category => category.id === categoryId);
@@ -182,7 +217,7 @@ export const useCategories = (userId, includeGlobal = true) => {
     
     while (currentCategory) {
       path.unshift(currentCategory);
-      currentCategory = currentCategory.parentId ? findCategoryById(currentCategory.parentId) : null;
+      currentCategory = currentCategory.parent?.id ? findCategoryById(currentCategory.parent.id) : null;
     }
     
     return path;
@@ -194,29 +229,38 @@ export const useCategories = (userId, includeGlobal = true) => {
   };
 
   const hasSubcategories = (categoryId) => {
-    return categories.some(category => category.parentId === categoryId);
+    return categories.some(category => category.parent?.id === categoryId);
   };
 
   const getTopLevelCategories = () => {
-    return categories.filter(category => !category.parentId);
+    return categories.filter(category => !category.parent);
   };
 
   const getUserCategories = () => {
-    return categories.filter(category => !category.isGlobal);
+    // In the new structure, there are no user-specific categories
+    // Return empty array for backward compatibility
+    return [];
   };
 
   const getGlobalCategories = () => {
-    return categories.filter(category => category.isGlobal);
+    // All categories are now global
+    return categories;
+  };
+
+  const getActiveCategories = () => {
+    return categories.filter(category => category.isActive);
+  };
+
+  const getInactiveCategories = () => {
+    return categories.filter(category => !category.isActive);
   };
 
   const clearError = () => setError(null);
 
-  // Auto-fetch only on userId change to prevent excessive API calls
+  // Auto-fetch categories on mount (userId parameter maintained for backward compatibility)
   useEffect(() => {
-    if (userId) {
-      fetchCategories();
-    }
-  }, [userId]);
+    fetchCategories();
+  }, []); // Remove userId dependency since the new API doesn't require it
 
   return {
     categories,
@@ -228,7 +272,9 @@ export const useCategories = (userId, includeGlobal = true) => {
     createCategory,
     updateCategory,
     deleteCategory,
+    activateCategory, // New method for activating categories
     getSubcategories,
+    searchCategories, // New method for searching categories
     getCategoryOptions,
     findCategoryById,
     findCategoryPath,
@@ -237,6 +283,8 @@ export const useCategories = (userId, includeGlobal = true) => {
     getTopLevelCategories,
     getUserCategories,
     getGlobalCategories,
+    getActiveCategories, // New method
+    getInactiveCategories, // New method
     clearError
   };
 };
@@ -248,16 +296,18 @@ export const useCategory = (categoryId, userId) => {
   const [subcategories, setSubcategories] = useState([]);
 
   const fetchCategory = async () => {
-    if (!categoryId || !userId) return;
+    if (!categoryId) return;
     
+    console.log(`useCategory called with categoryId: ${categoryId}, userId: ${userId} - using public endpoints`);
     setLoading(true);
     setError(null);
     try {
-      const categoryData = await categoryService.getCategoryById(categoryId, userId);
+      // Use new public endpoint (userId parameter maintained for backward compatibility)
+      const categoryData = await categoryService.getCategoryById(categoryId);
       setCategory(categoryData);
       
       // Also fetch subcategories if this is a parent category
-      const subCats = await categoryService.getSubcategories(categoryId, userId);
+      const subCats = await categoryService.getSubcategories(categoryId);
       setSubcategories(subCats);
     } catch (err) {
       setError(err.message || 'Failed to fetch category');
@@ -268,15 +318,16 @@ export const useCategory = (categoryId, userId) => {
   };
 
   const updateCategory = async (categoryData) => {
-    if (!categoryId || !userId) return;
+    if (!categoryId) return;
 
     setLoading(true);
     setError(null);
     try {
       // Validate the category operation
-      await categoryService.validateCategoryOperation({ ...categoryData, id: categoryId }, userId);
+      await categoryService.validateCategoryOperation({ ...categoryData, id: categoryId });
       
-      const updatedCategory = await categoryService.updateCategory(categoryId, userId, categoryData);
+      // Use new admin endpoint (userId parameter ignored)
+      const updatedCategory = await categoryService.updateGlobalCategory(categoryId, categoryData);
       setCategory(updatedCategory);
       return updatedCategory;
     } catch (err) {
@@ -288,12 +339,13 @@ export const useCategory = (categoryId, userId) => {
   };
 
   const deleteCategory = async () => {
-    if (!categoryId || !userId) return;
+    if (!categoryId) return;
 
     setLoading(true);
     setError(null);
     try {
-      await categoryService.deleteCategory(categoryId, userId);
+      // Use new admin endpoint (userId parameter ignored)
+      await categoryService.deleteGlobalCategory(categoryId);
       setCategory(null);
       setSubcategories([]);
       return true;
@@ -305,11 +357,29 @@ export const useCategory = (categoryId, userId) => {
     }
   };
 
+  const activateCategory = async () => {
+    if (!categoryId) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      // Use new admin endpoint
+      const activatedCategory = await categoryService.activateGlobalCategory(categoryId);
+      setCategory(activatedCategory);
+      return activatedCategory;
+    } catch (err) {
+      setError(err.message || 'Failed to activate category');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const refreshSubcategories = async () => {
-    if (!categoryId || !userId) return;
+    if (!categoryId) return;
 
     try {
-      const subCats = await categoryService.getSubcategories(categoryId, userId);
+      const subCats = await categoryService.getSubcategories(categoryId);
       setSubcategories(subCats);
     } catch (err) {
       console.error('Error refreshing subcategories:', err);
@@ -318,7 +388,7 @@ export const useCategory = (categoryId, userId) => {
 
   useEffect(() => {
     fetchCategory();
-  }, [categoryId, userId]);
+  }, [categoryId]); // Remove userId dependency
 
   return {
     category,
@@ -328,6 +398,7 @@ export const useCategory = (categoryId, userId) => {
     refetchCategory: fetchCategory,
     updateCategory,
     deleteCategory,
+    activateCategory, // New method
     refreshSubcategories,
     clearError: () => setError(null)
   };

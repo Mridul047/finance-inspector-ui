@@ -30,8 +30,9 @@ function Dashboard() {
     totalAmount: 0,
     needsCount: 0,
     wantsCount: 0,
-    categoriesCount: 0,
-    userCategoriesCount: 0,
+    totalCategories: 0,
+    activeCategories: 0,
+    inactiveCategories: 0,
     primaryCurrency: 'INR'
   });
 
@@ -53,7 +54,7 @@ function Dashboard() {
       const [userData, expenseData, categoryData] = await Promise.all([
         userService.getAllUsers(),
         expenseService.getExpenses(userId, 0, 100).catch(() => ({ content: [], totalElements: 0 })),
-        categoryService.getCategories(userId).catch(() => [])
+        categoryService.getAllGlobalCategories().catch(() => [])
       ]);
       
       setUsers(userData);
@@ -65,8 +66,11 @@ function Dashboard() {
       const totalAmount = expenseData.content?.reduce((sum, exp) => sum + parseFloat(exp.amount || 0), 0) || 0;
       const needsCount = expenseData.content?.filter(exp => exp.expenseType === 'NEED').length || 0;
       const wantsCount = expenseData.content?.filter(exp => exp.expenseType === 'WANT').length || 0;
-      const categoriesCount = categoryData?.length || 0;
-      const userCategoriesCount = categoryData?.filter(cat => !cat.isGlobal).length || 0;
+      
+      // Updated category statistics - using active/inactive instead of personal/global
+      const totalCategories = categoryData?.length || 0;
+      const activeCategories = categoryData?.filter(cat => cat.isActive !== false).length || 0;
+      const inactiveCategories = categoryData?.filter(cat => cat.isActive === false).length || 0;
       
       // Determine primary currency from expenses (most common currency)
       const currencyCounts = expenseData.content?.reduce((acc, exp) => {
@@ -83,12 +87,13 @@ function Dashboard() {
         totalAmount,
         needsCount,
         wantsCount,
-        categoriesCount,
-        userCategoriesCount,
+        totalCategories,
+        activeCategories,
+        inactiveCategories,
         primaryCurrency
       });
       
-      console.log('API Connection successful - Users:', userData.length, 'Expenses:', totalExpenses, 'Categories:', categoriesCount);
+      console.log('API Connection successful - Users:', userData.length, 'Expenses:', totalExpenses, 'Categories:', totalCategories, 'Active:', activeCategories, 'Inactive:', inactiveCategories);
     } catch (err) {
       setError(err.message || 'Failed to connect to API');
       setConnectionStatus('disconnected');
@@ -194,7 +199,7 @@ function Dashboard() {
           </Link>
         </div>
 
-        {/* Category Statistics */}
+        {/* Updated Category Statistics */}
         <div className="card-responsive">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">
             Category Overview
@@ -202,21 +207,22 @@ function Dashboard() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-gray-600">Total Categories</span>
-              <span className="font-bold text-2xl text-purple-600">{stats.categoriesCount}</span>
+              <span className="font-bold text-2xl text-blue-600">{stats.totalCategories}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-gray-600">Personal</span>
-              <span className="font-semibold text-green-700">{stats.userCategoriesCount}</span>
+              <span className="text-gray-600">Active</span>
+              <span className="font-semibold text-green-700">{stats.activeCategories}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-gray-600">Global</span>
-              <span className="font-semibold text-purple-700">{stats.categoriesCount - stats.userCategoriesCount}</span>
+              <span className="text-gray-600">Inactive</span>
+              <span className="font-semibold text-gray-700">{stats.inactiveCategories}</span>
             </div>
           </div>
           <Link to="/categories" className="btn btn-outline w-full mt-4">
             Manage Categories →
           </Link>
         </div>
+
         {/* API Connection Status */}
         <div className="card-responsive">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">
@@ -336,7 +342,7 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* API Connection Status */}
+        {/* Recent Activity */}
         <div className="card-responsive">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">
             Recent Activity
@@ -352,8 +358,13 @@ function Dashboard() {
                 Successfully loaded {users.length} users from API
               </div>
             )}
-            {connectionStatus === 'connected' && (
+            {stats.totalCategories > 0 && (
               <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-sm">
+                Loaded {stats.totalCategories} categories ({stats.activeCategories} active, {stats.inactiveCategories} inactive)
+              </div>
+            )}
+            {connectionStatus === 'connected' && (
+              <div className="p-3 rounded-lg bg-green-50 border border-green-200 text-green-800 text-sm">
                 API connection established at {new Date().toLocaleTimeString()}
               </div>
             )}
